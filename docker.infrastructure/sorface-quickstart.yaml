@@ -1,0 +1,83 @@
+name: sorface-quickstart
+
+services:
+
+  redis:
+    container_name: "redis"
+    build:
+      context: docker.infrastructure
+      dockerfile: datastorage.redis/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    env_file:
+      - datastorage.redis/.docker.redis.env
+
+  postgresql:
+    container_name: "postgres"
+    build:
+      context: docker.infrastructure/postgresql
+      dockerfile: Dockerfile
+    ports:
+      - "5432:5432"
+    env_file:
+      - datastorage.postgresql/.docker.pgsql.env
+
+  backend.passport:
+    container_name: "backend.passport"
+    build:
+      context: service.passport/backend/
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - postgresql
+    env_file:
+      - service.passport/backend/.env
+
+  backend.interview:
+    container_name: "backend.interview"
+    build:
+      context: service.interview/backend/
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5043:80"
+    depends_on:
+      - redis
+      - postgresql
+    env_file:
+      - service.interview/backend/.env
+
+  frontend.passport:
+    container_name: "frontend.passport"
+    build:
+      context: service.passport/frontend/
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=http://localhost:8080
+        - REACT_APP_VERSION=1.0.0
+        - NGINX_DOMAIN=localhost
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend.passport
+    restart: always
+
+  frontend.interview:
+    container_name: "frontend.interview"
+    build:
+      context: service.interview/frontend/
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=http://localhost:5043/api
+        - REACT_APP_WS_URL=ws://localhost:5043
+        - REACT_APP_BUILD_HASH=1.0.0
+        - NGINX_DOMAIN=localhost
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend.interview
+    restart: always
