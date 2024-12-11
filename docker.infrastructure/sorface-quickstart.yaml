@@ -51,9 +51,10 @@ services:
     restart: always
     ports:
       - "9000:9000"
-    depends_on:
-      - redis
-      - postgresql
+#    depends_on:
+#      - redis
+#      - postgresql
+#      - backend-passport
     env_file:
       - service.gateway/backend/.env
 
