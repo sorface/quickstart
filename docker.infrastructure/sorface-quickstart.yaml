@@ -48,7 +48,7 @@ services:
       args:
         GITHUB_BRANCH: 'master'
         MAVEN_PROFILE: 'gateway.docker'
-    restart: always
+    restart: no
     ports:
       - "9000:9000"
 #    depends_on:
