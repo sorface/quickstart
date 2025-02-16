@@ -2,19 +2,21 @@ FROM ubuntu as source_code
 
 WORKDIR /source
 
+ARG GITHUB_BRANCH
+
 RUN apt-get update && \
     apt-get install -y git && \
-    git clone https://github.com/sorface/passport.git
+    git clone https://github.com/sorface/passport.git -b $GITHUB_BRANCH
 
-FROM maven:3.8.7-eclipse-temurin-19 as build
+FROM maven:3.9.9-eclipse-temurin-21 as build
 
 COPY --from=source_code /source/passport/ .
 
-ARG ACTIVE_PROFILE=docker
+ARG MAVEN_PROFILE
 
-RUN mvn clean package -P run.context.$ACTIVE_PROFILE
+RUN mvn clean package -P $MAVEN_PROFILE
 
-FROM eclipse-temurin:19
+FROM eclipse-temurin:21
 
 ARG JAR_FILE=/web/target/*.jar
 
