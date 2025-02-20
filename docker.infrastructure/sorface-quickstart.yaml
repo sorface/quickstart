@@ -1,25 +1,20 @@
 name: sorface-quickstart
 
 services:
+  redis:
+    container_name: "redis"
+    build:
+      context: datastorage.redis
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - datastorage.redis/.docker.redis.env
 
-#  redis:
-#    container_name: "redis"
-#    build:
-#      context: datastorage.redis
-#      dockerfile: Dockerfile
-#    restart: unless-stopped
-#    ports:
-#      - "6379:6379"
-#    env_file:
-#      - datastorage.redis/.docker.redis.env
-#
   postgresql:
     container_name: "postgresql"
     build:
       context: datastorage.postgresql
       dockerfile: Dockerfile
-    ports:
-      - "5432:5432"
     env_file:
       - datastorage.postgresql/.docker.pgsql.env
 
@@ -32,9 +27,8 @@ services:
         GITHUB_BRANCH: 'feature/gateway'
         MAVEN_PROFILE: 'passport.development'
     restart: always
-    ports:
-      - "8080"
     depends_on:
+      - redis
       - postgresql
     env_file:
       - service.passport/backend/.env
@@ -47,13 +41,37 @@ services:
       args:
         GITHUB_BRANCH: 'master'
         MAVEN_PROFILE: 'gateway.docker'
-    restart: no
-    #    depends_on:
-    #      - redis
-    #      - postgresql
-    #      - backend-passport
+    restart: always
+    depends_on:
+      - be_passport
     env_file:
       - service.gateway/backend/.env
+    extra_hosts:
+      - "api.idp.sorface.local:host-gateway"
+
+  fe_id:
+    container_name: "fe_id"
+    build:
+      context: service.passport/frontend/id/
+      dockerfile: Dockerfile
+      args:
+        GITHUB_BRANCH: master
+        REACT_APP_GATEWAY_URL: 'http://localhost:9030/passport'
+        REACT_APP_PASSPORT_PREFIX: '/passport'
+        REACT_APP_BUILD_HASH: '1.0.0-Docker'
+    restart: always
+
+  fe_passport:
+    container_name: "fe_passport"
+    build:
+      context: service.passport/frontend/passport/
+      dockerfile: Dockerfile
+      args:
+        GITHUB_BRANCH: master
+        REACT_APP_BACKEND_URL: 'http://api.idp.sorface.local:8023/passport'
+        REACT_APP_PROFILE_PAGE: 'http://id.sorface.local:8023/account'
+        REACT_APP_BUILD_HASH: '1.0.0-Docker'
+    restart: always
 
   nginx:
     container_name: "proxy"
@@ -61,64 +79,12 @@ services:
       context: proxy
       dockerfile: Dockerfile
     restart: always
+    depends_on:
+      - redis
+      - postgresql
+      - be_passport
+      - be_gateway
+      - fe_id
+      - fe_passport
     ports:
       - "8023:80"
-
-#  backend-interview:
-#    container_name: "backend.interview"
-#    build:
-#      context: service.interview/backend/
-#      dockerfile: Dockerfile
-#      args:
-#        GITHUB_BRANCH: 'bugfix/#471'
-#    restart: always
-#    depends_on:
-#      - redis
-#      - postgresql
-#      - backend-passport
-#      - backend-gateway
-#    env_file:
-#      - service.interview/backend/.env
-#
-#  frontend.web.id:
-#    container_name: "frontend.web.interview"
-#    build:
-#      context: service.interview/frontend/
-#      dockerfile: Dockerfile
-#      args:
-#        REACT_APP_BACKEND_URL: 'http://localhost:9030/passport'
-#        REACT_APP_VERSION: 1.0.0-Develop
-#        PORT: 9030
-#    ports:
-#      - "9030:80"
-#    restart: always
-#
-#  frontend.web.passport:
-#    container_name: "frontend.web.passport"
-#    build:
-#      context: service.passport/frontend/
-#      dockerfile: service.passport/frontend/passport/Dockerfile
-#      args:
-#        REACT_APP_BACKEND_URL: 'http://localhost:8080'
-#        REACT_APP_VERSION: 1.0.0-Develop
-#        REACT_APP_PROFILE_PAGE: http://localhost:9030/account
-#    ports:
-#      - "3001:80"
-#    restart: always
-#
-#  frontend.web.interview:
-#    container_name: "frontend.web.interview"
-#    build:
-#      context: service.interview/frontend/
-#      dockerfile: Dockerfile
-#      args:
-#        REACT_APP_BACKEND_URL: 'http://localhost:3000/api/product/interview'
-#        REACT_APP_LOGIN_URL: 'http://localhost:3000/oauth2'
-#        REACT_APP_LOGOUT_URL: 'http://localhost:3000/logout'
-#        REACT_APP_PASSPORT_URL: 'http://localhost:3000/passport/api'
-#        REACT_APP_WS_URL: 'ws://localhost:9000/ws'
-#        REACT_APP_BUILD_HASH: '1.0.0-Develop'
-#        PORT: 3000
-#    ports:
-#      - "3000:80"
-#    restart: always
